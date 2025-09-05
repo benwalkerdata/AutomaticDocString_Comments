@@ -23,8 +23,14 @@ def commentize(file, code):
     text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     inputs = tokenizer([text], return_tensors="pt").to(model.device)
     output_ids = model.generate(**inputs, max_new_tokens=1024)
-    annotated_code = tokenizer.decode(output_ids[inputs.input_ids.shape[21]:], skip_special_tokens=True)
+    input_len = inputs.input_ids.shape[1]
+    generated = output_ids[0]
+    if input_len < generated.shape[0]:
+        annotated_code = tokenizer.decode(generated[input_len:], skip_special_tokens=True)
+    else:
+        annotated_code = tokenizer.decode(generated, skip_special_tokens=True)
     return annotated_code
+
 
 with gr.Blocks() as app:
     gr.Markdown("# Code Commentizer")
