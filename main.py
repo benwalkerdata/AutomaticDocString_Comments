@@ -1,9 +1,12 @@
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForCausalLM
+from huggingface_hub import login
 import gradio as gr
 import torch
 
-tokenizer = AutoTokenizer.from_pretrained("google/codegemma-2b")
-model = AutoModelForSeq2SeqLM.from_pretrained("documint/google-codegemma-2b-documint")
+login(token="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")
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-4B-Instruct-2507")
+model = AutoModelForCausalLM.from_pretrained(
+    "Qwen/Qwen3-4B-Instruct-2507")
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model.to(device)
 
@@ -12,10 +15,15 @@ def commentize(file, code):
         code = file.read().decode()
     if not code:
         return "Please upload a code file or paste code into the text box."
-    prompt = f"Please restructure the attached code and add docstrings and comments in the relevant places. do not alter the actual code. :\n{code}"
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512).to(device)
-    output_ids = model.generate(inputs['input_ids'])
-    annotated_code = tokenizer.decode(output_ids[0], skip_special_tokens=True)
+
+    prompt = "Refactor this code by adding docstrings and comments. Only annotate, do not change logic."
+    messages = [
+        {"role": "user", "content": f"{prompt}\n{code}"}
+    ]
+    text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    inputs = tokenizer([text], return_tensors="pt").to(model.device)
+    output_ids = model.generate(**inputs, max_new_tokens=1024)
+    annotated_code = tokenizer.decode(output_ids[inputs.input_ids.shape[21]:], skip_special_tokens=True)
     return annotated_code
 
 with gr.Blocks() as app:
